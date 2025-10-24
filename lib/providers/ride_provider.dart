@@ -1,8 +1,8 @@
-// lib/providers/ride_provider.dart
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/ride.dart';
+import '../models/ride_status.dart'; 
 
 class RideProvider extends ChangeNotifier {
   Database? _db;
@@ -16,43 +16,70 @@ class RideProvider extends ChangeNotifier {
 
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2, 
       onCreate: (db, version) async {
+        
         await db.execute('''
           CREATE TABLE rides(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
             imageUrl TEXT,
-            description TEXT
+            description TEXT,
+            thrillLevel INTEGER NOT NULL DEFAULT 3,
+            status TEXT NOT NULL DEFAULT 'available'
           )
         ''');
 
-        // Insert 5 initial rides
+        
         await db.insert('rides', {
           'name': 'Roller Coaster',
-          'imageUrl': 'https://cdn.pixabay.com/photo/2017/02/15/22/14/roller-coaster-2071460_1280.jpg',
+          'imageUrl': 'https://upload.wikimedia.org/wikipedia/commons/6/65/Luna_Park_Melbourne_scenic_railway.jpg',
           'description': 'รถไฟเหาะตีลังกาสุดมันส์ เหมาะกับสายแอดเวนเจอร์',
+          'thrillLevel': 5,
+          'status': RideStatus.available.name,
         });
         await db.insert('rides', {
           'name': 'Ferris Wheel',
-          'imageUrl': 'https://cdn.pixabay.com/photo/2016/03/27/18/38/ferris-wheel-1281452_1280.jpg',
+          'imageUrl': 'https://www.oktoberfest.de/sites/default/files/styles/facebook/public/2025-01/whatsapp_image_2025-01-13_at_15.01.26.jpeg?h=71976bb4',
           'description': 'ชิงช้าสวรรค์ชมวิวจากมุมสูง เหมาะกับทุกเพศทุกวัย',
+          'thrillLevel': 1,
+          'status': RideStatus.available.name,
         });
         await db.insert('rides', {
           'name': 'Bumper Cars',
-          'imageUrl': 'https://cdn.pixabay.com/photo/2016/08/30/13/20/fun-ride-1635746_1280.jpg',
+          'imageUrl': 'https://i.ytimg.com/vi/qarl_jGdNIs/maxresdefault.jpg?sqp=-oaymwEmCIAKENAF8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGFkgQShyMA8=&rs=AOn4CLB5Dmwo65cdxZ1RfxLF8aIBDoAOOQ',
           'description': 'รถบั๊มสุดฮา สนุกได้ทั้งครอบครัว',
+          'thrillLevel': 2,
+          'status': RideStatus.maintenance.name, 
         });
         await db.insert('rides', {
           'name': 'Pirate Ship',
-          'imageUrl': 'https://cdn.pixabay.com/photo/2016/11/22/19/47/pirate-ship-1851222_1280.jpg',
+          'imageUrl': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRBsH_1U1ihNWi3poJwH5ZdGezO75i2DQZdIA&s',
           'description': 'เรือไวกิ้งเหวี่ยงสุดเหวี่ยง สนุกและหวาดเสียว!',
+          'thrillLevel': 4,
+          'status': RideStatus.available.name,
         });
         await db.insert('rides', {
           'name': 'Haunted House',
-          'imageUrl': 'https://cdn.pixabay.com/photo/2015/11/07/11/43/haunted-house-1030347_1280.jpg',
+          'imageUrl': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSpE-mU4QkpKwCK7ic0ds-pxi3eYjxLgVubHA&s',
           'description': 'บ้านผีสิงสุดระทึก เหมาะกับคนใจกล้า',
+          'thrillLevel': 3,
+          'status': RideStatus.closed.name, 
         });
+      },
+      
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          
+          await db.execute('ALTER TABLE rides ADD COLUMN thrillLevel INTEGER NOT NULL DEFAULT 3');
+          await db.execute("ALTER TABLE rides ADD COLUMN status TEXT NOT NULL DEFAULT 'available'");
+
+          await db.update('rides', {'thrillLevel': 5}, where: 'name = ?', whereArgs: ['Roller Coaster']);
+          await db.update('rides', {'thrillLevel': 1}, where: 'name = ?', whereArgs: ['Ferris Wheel']);
+          await db.update('rides', {'thrillLevel': 2, 'status': RideStatus.maintenance.name}, where: 'name = ?', whereArgs: ['Bumper Cars']);
+          await db.update('rides', {'thrillLevel': 4}, where: 'name = ?', whereArgs: ['Pirate Ship']);
+          await db.update('rides', {'thrillLevel': 3, 'status': RideStatus.closed.name}, where: 'name = ?', whereArgs: ['Haunted House']);
+        }
       },
     );
 
@@ -61,7 +88,7 @@ class RideProvider extends ChangeNotifier {
 
   Future<void> load() async {
     if (_db == null) return;
-    final maps = await _db!.query('rides');
+    final maps = await _db!.query('rides', orderBy: 'name ASC');
     _rides = maps.map((m) => Ride.fromMap(m)).toList();
     notifyListeners();
   }

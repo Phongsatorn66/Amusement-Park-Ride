@@ -1,4 +1,3 @@
-// lib/screens/ride_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/ride_provider.dart';
@@ -16,13 +15,17 @@ class _RideListScreenState extends State<RideListScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   bool _isGrid = false;
   String _query = '';
+  bool _isLoading = true; 
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prov = Provider.of<RideProvider>(context, listen: false);
-      prov.initDatabase();
+      await prov.initDatabase(); 
+      if (mounted) {
+        setState(() => _isLoading = false); 
+      }
     });
 
     _searchCtrl.addListener(() {
@@ -106,13 +109,22 @@ class _RideListScreenState extends State<RideListScreen> {
       ),
       body: Consumer<RideProvider>(
         builder: (context, prov, child) {
-          final items = _applyFilter(prov.rides);
-
-          if (prov.rides.isEmpty) {
+          if (_isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (items.isEmpty) {
+          final items = _applyFilter(prov.rides);
+
+          if (prov.rides.isEmpty && !_isLoading) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text('ไม่มีเครื่องเล่น กดปุ่ม + เพื่อเริ่มเพิ่มข้อมูล', textAlign: TextAlign.center),
+              )
+            );
+          }
+
+          if (items.isEmpty && _query.isNotEmpty) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -131,7 +143,7 @@ class _RideListScreenState extends State<RideListScreen> {
                 ? GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      childAspectRatio: 0.95,
+                      childAspectRatio: 0.95, 
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
@@ -141,21 +153,7 @@ class _RideListScreenState extends State<RideListScreen> {
                       return RideTile(
                         ride: r,
                         onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RideFormScreen(ride: r))),
-                        onDelete: () async {
-                          final provider = context.read<RideProvider>();
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('ยืนยันการลบ'),
-                              content: Text('ต้องการลบ "${r.name}" หรือไม่?'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ยกเลิก')),
-                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ลบ')),
-                              ],
-                            ),
-                          );
-                          if (ok == true) await provider.deleteRide(r.id!);
-                        },
+                        onDelete: () => _confirmDelete(r), 
                       );
                     },
                   )
@@ -167,21 +165,7 @@ class _RideListScreenState extends State<RideListScreen> {
                       return RideTile(
                         ride: r,
                         onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RideFormScreen(ride: r))),
-                        onDelete: () async {
-                          final provider = context.read<RideProvider>();
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('ยืนยันการลบ'),
-                              content: Text('ต้องการลบ "${r.name}" หรือไม่?'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ยกเลิก')),
-                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ลบ')),
-                              ],
-                            ),
-                          );
-                          if (ok == true) await provider.deleteRide(r.id!);
-                        },
+                        onDelete: () => _confirmDelete(r), 
                       );
                     },
                   ),
@@ -194,5 +178,23 @@ class _RideListScreenState extends State<RideListScreen> {
         label: const Text('เพิ่มเครื่องเล่น'),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(Ride r) async {
+    final provider = context.read<RideProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('ยืนยันการลบ'),
+        content: Text('ต้องการลบ "${r.name}" หรือไม่?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ยกเลิก')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ลบ', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await provider.deleteRide(r.id!);
+    }
   }
 }

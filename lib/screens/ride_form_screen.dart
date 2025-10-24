@@ -1,8 +1,8 @@
-// lib/screens/ride_form_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/ride.dart';
 import '../providers/ride_provider.dart';
+import '../models/ride_status.dart';
 
 class RideFormScreen extends StatefulWidget {
   final Ride? ride;
@@ -16,6 +16,8 @@ class _RideFormScreenState extends State<RideFormScreen> {
   late TextEditingController _nameCtrl;
   late TextEditingController _imageCtrl;
   late TextEditingController _descCtrl;
+  late int _thrillLevel;
+  late RideStatus _status;
 
   @override
   void initState() {
@@ -23,6 +25,8 @@ class _RideFormScreenState extends State<RideFormScreen> {
     _nameCtrl = TextEditingController(text: widget.ride?.name ?? '');
     _imageCtrl = TextEditingController(text: widget.ride?.imageUrl ?? '');
     _descCtrl = TextEditingController(text: widget.ride?.description ?? '');
+    _thrillLevel = widget.ride?.thrillLevel ?? 3;
+    _status = widget.ride?.status ?? RideStatus.available;
   }
 
   @override
@@ -56,7 +60,6 @@ class _RideFormScreenState extends State<RideFormScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอก URL รูปภาพ' : null,
               ),
               const SizedBox(height: 8),
-              // preview image live
               if (_imageCtrl.text.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -75,6 +78,35 @@ class _RideFormScreenState extends State<RideFormScreen> {
                 decoration: const InputDecoration(labelText: 'รายละเอียด'),
                 maxLines: 3,
               ),
+              const SizedBox(height: 16),
+              Text('ระดับความน่าตื่นเต้น: $_thrillLevel', style: const TextStyle(fontSize: 16)),
+              Slider(
+                value: _thrillLevel.toDouble(),
+                min: 1,
+                max: 5,
+                divisions: 4,
+                label: _thrillLevel.toString(),
+                onChanged: (v) => setState(() => _thrillLevel = v.round()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<RideStatus>(
+                initialValue: _status, 
+                decoration: const InputDecoration(
+                  labelText: 'สถานะเครื่องเล่น',
+                  border: OutlineInputBorder(),
+                ),
+                items: RideStatus.values.map((s) {
+                  return DropdownMenuItem(
+                    value: s,
+                    child: Text(getRideStatusText(s)),
+                  );
+                }).toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    _status = v; 
+                  }
+                },
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
@@ -84,6 +116,8 @@ class _RideFormScreenState extends State<RideFormScreen> {
                     name: _nameCtrl.text.trim(),
                     imageUrl: _imageCtrl.text.trim(),
                     description: _descCtrl.text.trim(),
+                    thrillLevel: _thrillLevel,
+                    status: _status,
                   );
                   final provider = context.read<RideProvider>();
                   if (isEdit) {
